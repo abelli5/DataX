@@ -95,7 +95,9 @@
         <module>hbase11xsqlwriter</module>
         <module>hbase11xsqlreader</module>
         <module>elasticsearchwriter</module>
+<!--
         <module>tsdbwriter</module>
+-->
         <module>adbpgwriter</module>
         <module>gdbwriter</module>
         <module>cassandrawriter</module>
