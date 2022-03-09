@@ -81,6 +81,7 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
                         "keyColumn": [
                             "id"
                         ],
+                        "writeMode": "update",
                         "preSql": [
                             "delete from test"
                         ],
@@ -163,6 +164,16 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
     * 必选： <br />
 
     * 默认值：否 <br />
+
+* **writeMode**
+
+    * 描述：控制写入数据到目标表采用 `INSERT INTO ... ON CONFLICT({keyColumn}) DO UPDATE SET` 语句<br />
+
+    * 必选：是 <br />
+
+    * 所有选项：insert/replace/update <br />
+
+    * 默认值：insert <br />
 
 * **preSql**
 
