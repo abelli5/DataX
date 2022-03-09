@@ -78,6 +78,9 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
                             "id",
                             "name"
                         ],
+                        "keyColumn": [
+                            "id"
+                        ],
                         "preSql": [
                             "delete from test"
                         ],
@@ -149,6 +152,17 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
   * 必选：是 <br />
 
   * 默认值：否 <br />
+
+* **keyColumn**
+
+    * 描述：目的表的主键字段,字段之间用英文逗号分隔。主键字段必须包含在"column"中, 例如: "column": ["id","name","age"], "keyColumn": ["id"]。
+
+                 注意：1、我们强烈不推荐你这样配置，因为当你目的表字段个数、类型等有改动时，你的任务可能运行不正确或者失败
+                      2、此处 column 不能配置任何常量值
+
+    * 必选： <br />
+
+    * 默认值：否 <br />
 
 * **preSql**
 

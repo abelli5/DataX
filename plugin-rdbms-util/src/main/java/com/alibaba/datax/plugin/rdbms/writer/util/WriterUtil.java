@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public final class WriterUtil {
     private static final Logger LOG = LoggerFactory.getLogger(WriterUtil.class);
@@ -145,6 +146,61 @@ public final class WriterUtil {
         return writeDataSqlTemplate;
     }
 
+    /**
+     * Postgrresql 10+ supports upsert like this:
+     * <pre>
+     INSERT INTO user_pages (user_id, page_id, enabled)
+     VALUES (1, 1, TRUE), (1, 2, TRUE), (1, 3, FALSE)
+     ON CONFLICT (user_id, page_id)
+     DO UPDATE SET enabled = EXCLUDED.enabled;
+     * </pre>
+     * @param columnHolders
+     * @param valueHolders
+     * @param writeMode
+     * @param dataBaseType
+     * @param forceUseUpdate
+     * @return
+     */
+    public static String getWriteTemplate4Postgresql(List<String> columnHolders, List<String> valueHolders,
+                                                     List<String> keyColumns, String writeMode,
+                                                     DataBaseType dataBaseType, boolean forceUseUpdate) {
+        boolean isWriteModeLegal = writeMode.trim().toLowerCase().startsWith("insert")
+                || writeMode.trim().toLowerCase().startsWith("replace")
+                || writeMode.trim().toLowerCase().startsWith("update");
+
+        if (!isWriteModeLegal) {
+            throw DataXException.asDataXException(DBUtilErrorCode.ILLEGAL_VALUE,
+                    String.format("您所配置的 writeMode:%s 错误. 因为DataX 目前仅支持replace,update 或 insert 方式. 请检查您的配置并作出修改.", writeMode));
+        }
+        // && writeMode.trim().toLowerCase().startsWith("replace")
+        String writeDataSqlTemplate;
+        if (forceUseUpdate ||
+                ((dataBaseType == DataBaseType.PostgreSQL || dataBaseType == DataBaseType.Tddl)
+                        && writeMode.trim().toLowerCase().startsWith("update"))
+        ) {
+            //update只在mysql/postgresql下使用
+
+            writeDataSqlTemplate = new StringBuilder()
+                    .append("INSERT INTO %s (").append(StringUtils.join(columnHolders, ","))
+                    .append(") VALUES(").append(StringUtils.join(valueHolders, ","))
+                    .append(")")
+                    .append(onDuplicateKeyUpdateString4Postgresql(columnHolders, keyColumns))
+                    .toString();
+        } else {
+
+            //这里是保护,如果其他错误的使用了update,需要更换为replace
+            if (writeMode.trim().toLowerCase().startsWith("update")) {
+                writeMode = "replace";
+            }
+            writeDataSqlTemplate = new StringBuilder().append(writeMode)
+                    .append(" INTO %s (").append(StringUtils.join(columnHolders, ","))
+                    .append(") VALUES(").append(StringUtils.join(valueHolders, ","))
+                    .append(")").toString();
+        }
+
+        return writeDataSqlTemplate;
+    }
+
     public static String onDuplicateKeyUpdateString(List<String> columnHolders){
         if (columnHolders == null || columnHolders.size() < 1) {
             return "";
@@ -162,6 +218,43 @@ public final class WriterUtil {
             sb.append("=VALUES(");
             sb.append(column);
             sb.append(")");
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Postgrresql 10+ supports upsert like this:
+     * <pre>
+     INSERT INTO user_pages (user_id, page_id, enabled)
+     VALUES (1, 1, TRUE), (1, 2, TRUE), (1, 3, FALSE)
+     ON CONFLICT (user_id, page_id)
+     DO UPDATE SET enabled = EXCLUDED.enabled;
+     * </pre>
+     * @see {@link Key#KEY_COLUMN}
+     * @param columnHolders
+     * @return
+     */
+    public static String onDuplicateKeyUpdateString4Postgresql(List<String> columnHolders, List<String> keyColumns){
+        if (columnHolders == null || columnHolders.size() < 1) {
+            return "";
+        }
+        if (columnHolders.size() <= keyColumns.size()) {
+            throw new IllegalArgumentException("should columns contain key columns");
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(" ON CONFLICT (").append(keyColumns.get(0));
+        for (String key : keyColumns.stream().skip(1).collect(Collectors.toList())) {
+            sb.append(',').append(key);
+        }
+        sb.append(") DO UPDATE SET ");
+
+        List<String> noneKeyColumns = columnHolders.stream().filter(nk -> !keyColumns.contains(nk)).collect(Collectors.toList());
+        sb.append(noneKeyColumns.get(0)).append("=EXCLUDED.").append(noneKeyColumns.get(0));
+        for (String column : noneKeyColumns.stream().skip(1).collect(Collectors.toList())) {
+            sb.append(',').append(column).append("=EXCLUDED.").append(column);
         }
 
         return sb.toString();
