@@ -142,6 +142,7 @@ public final class OriginalConfPretreatmentUtil {
 
     public static void dealWriteMode(Configuration originalConfig, DataBaseType dataBaseType) {
         List<String> columns = originalConfig.getList(Key.COLUMN, String.class);
+        List<String> keyColumns = originalConfig.getList(Key.KEY_COLUMN, String.class);
 
         String jdbcUrl = originalConfig.getString(String.format("%s[0].%s",
                 Constant.CONN_MARK, Key.JDBC_URL, String.class));
@@ -156,11 +157,13 @@ public final class OriginalConfPretreatmentUtil {
 
         boolean forceUseUpdate = false;
         //ob10的处理
-        if (dataBaseType == DataBaseType.MySql && isOB10(jdbcUrl)) {
+        if ((dataBaseType == DataBaseType.MySql || dataBaseType == DataBaseType.PostgreSQL) && isOB10(jdbcUrl)) {
             forceUseUpdate = true;
         }
 
-        String writeDataSqlTemplate = WriterUtil.getWriteTemplate(columns, valueHolders, writeMode,dataBaseType, forceUseUpdate);
+        String writeDataSqlTemplate = (dataBaseType == DataBaseType.PostgreSQL) ?
+                WriterUtil.getWriteTemplate4Postgresql(columns, valueHolders, keyColumns, writeMode, dataBaseType, forceUseUpdate)
+                : WriterUtil.getWriteTemplate(columns, valueHolders, writeMode, dataBaseType, forceUseUpdate);
 
         LOG.info("Write data [\n{}\n], which jdbcUrl like:[{}]", writeDataSqlTemplate, jdbcUrl);
 
