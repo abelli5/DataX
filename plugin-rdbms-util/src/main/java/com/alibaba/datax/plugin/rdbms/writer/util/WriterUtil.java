@@ -282,7 +282,7 @@ public final class WriterUtil {
         for (String key : keyColumns.stream().skip(1).collect(Collectors.toList())) {
             sb.append(',').append(key);
         }
-        sb.append(") DO NOTHING ");
+        sb.append(") DO NOTHING");
 
         return sb.toString();
     }
