@@ -567,8 +567,7 @@ public class CommonRdbmsWriter {
 
                 boolean forceUseUpdate = false;
                 //ob10的处理
-                if (dataBaseType != null
-                        && (dataBaseType == DataBaseType.MySql || dataBaseType == DataBaseType.PostgreSQL)
+                if ((dataBaseType == DataBaseType.MySql || dataBaseType == DataBaseType.PostgreSQL)
                         && OriginalConfPretreatmentUtil.isOB10(jdbcUrl)) {
                     forceUseUpdate = true;
                 }

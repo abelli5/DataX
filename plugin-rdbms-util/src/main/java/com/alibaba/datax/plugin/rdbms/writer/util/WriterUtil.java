@@ -164,6 +164,10 @@ public final class WriterUtil {
     public static String getWriteTemplate4Postgresql(List<String> columnHolders, List<String> valueHolders,
                                                      List<String> keyColumns, String writeMode,
                                                      DataBaseType dataBaseType, boolean forceUseUpdate) {
+        if (dataBaseType != DataBaseType.PostgreSQL) {
+            throw new IllegalArgumentException("only postgresql valid here");
+        }
+
         boolean isWriteModeLegal = writeMode.trim().toLowerCase().startsWith("insert")
                 || writeMode.trim().toLowerCase().startsWith("replace")
                 || writeMode.trim().toLowerCase().startsWith("update");
@@ -174,12 +178,9 @@ public final class WriterUtil {
         }
         // && writeMode.trim().toLowerCase().startsWith("replace")
         String writeDataSqlTemplate;
-        if (forceUseUpdate ||
-                ((dataBaseType == DataBaseType.PostgreSQL || dataBaseType == DataBaseType.Tddl)
-                        && writeMode.trim().toLowerCase().startsWith("update"))
-        ) {
+        if (writeMode.trim().toLowerCase().startsWith("replace")
+                || writeMode.trim().toLowerCase().startsWith("update")) {
             //update只在mysql/postgresql下使用
-
             writeDataSqlTemplate = new StringBuilder()
                     .append("INSERT INTO %s (").append(StringUtils.join(columnHolders, ","))
                     .append(") VALUES(").append(StringUtils.join(valueHolders, ","))
@@ -187,15 +188,13 @@ public final class WriterUtil {
                     .append(onDuplicateKeyUpdateString4Postgresql(columnHolders, keyColumns))
                     .toString();
         } else {
-
-            //这里是保护,如果其他错误的使用了update,需要更换为replace
-            if (writeMode.trim().toLowerCase().startsWith("update")) {
-                writeMode = "replace";
-            }
-            writeDataSqlTemplate = new StringBuilder().append(writeMode)
-                    .append(" INTO %s (").append(StringUtils.join(columnHolders, ","))
+            // insert
+            writeDataSqlTemplate = new StringBuilder()
+                    .append("INSERT INTO %s (").append(StringUtils.join(columnHolders, ","))
                     .append(") VALUES(").append(StringUtils.join(valueHolders, ","))
-                    .append(")").toString();
+                    .append(")")
+                    .append(onDuplicateKeyDoNothing4Postgresql(keyColumns))
+                    .toString();
         }
 
         return writeDataSqlTemplate;
@@ -236,7 +235,8 @@ public final class WriterUtil {
      * @return
      */
     public static String onDuplicateKeyUpdateString4Postgresql(List<String> columnHolders, List<String> keyColumns){
-        if (columnHolders == null || columnHolders.size() < 1) {
+        if (columnHolders == null || columnHolders.isEmpty()
+                || keyColumns == null || keyColumns.isEmpty()) {
             return "";
         }
         if (columnHolders.size() <= keyColumns.size()) {
@@ -256,6 +256,33 @@ public final class WriterUtil {
         for (String column : noneKeyColumns.stream().skip(1).collect(Collectors.toList())) {
             sb.append(',').append(column).append("=EXCLUDED.").append(column);
         }
+
+        return sb.toString();
+    }
+
+    /**
+     * Postgrresql 10+ supports upsert like this:
+     * <pre>
+     INSERT INTO user_pages (user_id, page_id, enabled)
+     VALUES (1, 1, TRUE), (1, 2, TRUE), (1, 3, FALSE)
+     ON CONFLICT (user_id, page_id)
+     DO NOTHING;
+     * </pre>
+     * @see {@link Key#KEY_COLUMN}
+     * @return
+     */
+    public static String onDuplicateKeyDoNothing4Postgresql(List<String> keyColumns){
+        if (keyColumns == null || keyColumns.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(" ON CONFLICT (").append(keyColumns.get(0));
+        for (String key : keyColumns.stream().skip(1).collect(Collectors.toList())) {
+            sb.append(',').append(key);
+        }
+        sb.append(") DO NOTHING ");
 
         return sb.toString();
     }
